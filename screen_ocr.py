@@ -3,22 +3,27 @@ import ctypes
 import tkinter as tk
 from PIL import ImageGrab
 import pytesseract
-
-# Make process DPI-aware so coordinates match physical screen pixels
-ctypes.windll.shcore.SetProcessDpiAwareness(2)
-
-# Auto-detect Tesseract on Windows if not on PATH
 import shutil
 import os
 
-if not shutil.which("tesseract"):
+
+def setup_dpi_awareness():
+    """Make process DPI-aware so coordinates match physical screen pixels."""
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+
+
+def setup_tesseract():
+    """Auto-detect Tesseract on Windows if not on PATH.
+
+    Returns True if tesseract is available, False otherwise.
+    """
+    if shutil.which("tesseract"):
+        return True
     win_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     if os.path.isfile(win_path):
         pytesseract.pytesseract.tesseract_cmd = win_path
-    else:
-        print("Error: Tesseract OCR not found. Install it from:")
-        print("  https://github.com/UB-Mannheim/tesseract/wiki")
-        sys.exit(1)
+        return True
+    return False
 
 
 class RegionSelector:
@@ -73,7 +78,23 @@ class RegionSelector:
         return self.bbox
 
 
+def extract_text(bbox):
+    """Capture the given screen region and run OCR on it.
+
+    Returns the extracted text string, or empty string if nothing detected.
+    """
+    screenshot = ImageGrab.grab(bbox=bbox)
+    return pytesseract.image_to_string(screenshot).strip()
+
+
 def main():
+    setup_dpi_awareness()
+
+    if not setup_tesseract():
+        print("Error: Tesseract OCR not found. Install it from:")
+        print("  https://github.com/UB-Mannheim/tesseract/wiki")
+        sys.exit(1)
+
     print("Select a region on screen (press Escape to cancel)...")
 
     selector = RegionSelector()
@@ -83,9 +104,7 @@ def main():
         print("No region selected.")
         sys.exit(0)
 
-    # Hide the overlay fully before capturing
-    screenshot = ImageGrab.grab(bbox=bbox)
-    text = pytesseract.image_to_string(screenshot).strip()
+    text = extract_text(bbox)
 
     if text:
         print("\n--- Extracted Text ---")
